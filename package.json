@@ -1,7 +1,7 @@
 {
   "name": "x32-osc",
   "version": "1.0.0",
-  "description": "X32/M32 OSC interface",
+  "description": "X32/M32 interface to all OSC parameters and meters",
   "main": "index.js",
   "scripts": {
     "build": "node ./node_modules/typescript/bin/tsc -p . --diagnostics",
