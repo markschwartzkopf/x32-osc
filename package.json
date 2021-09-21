@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/markschwartzkopf/console-testing.git"
+    "url": "git+https://github.com/markschwartzkopf/x32-osc.git"
   },
   "keywords": [
     "x32"
@@ -18,9 +18,9 @@
   "author": "Mark Schwartzkopf",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/markschwartzkopf/console-testing/issues"
+    "url": "https://github.com/markschwartzkopf/x32-osc/issues"
   },
-  "homepage": "https://github.com/markschwartzkopf/console-testing#readme",
+  "homepage": "https://github.com/markschwartzkopf/x32-osc#readme",
   "devDependencies": {
     "@types/node": "^16.9.4",
     "typescript": "^4.4.3"
