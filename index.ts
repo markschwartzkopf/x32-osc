@@ -4,7 +4,19 @@ import * as dgram from 'dgram';
 import { x32NodeStructure } from './x32definitions';
 import * as fs from 'fs';
 
-const x32branches = ['config', 'ch', 'auxin', 'fxrtn', 'bus', 'mtx', 'main', 'dca', 'fx', 'outputs', 'headamp'];
+const x32branches = [
+  'config',
+  'ch',
+  'auxin',
+  'fxrtn',
+  'bus',
+  'mtx',
+  'main',
+  'dca',
+  'fx',
+  'outputs',
+  'headamp',
+];
 
 interface consoleEvents {
   connected: () => void;
@@ -23,8 +35,14 @@ type oscArgument =
 
 interface X32 {
   on<U extends keyof consoleEvents>(event: U, listener: consoleEvents[U]): this;
-  off<U extends keyof consoleEvents>(event: U, listener: consoleEvents[U]): this;
-  emit<U extends keyof consoleEvents>(event: U, ...args: Parameters<consoleEvents[U]>): boolean;
+  off<U extends keyof consoleEvents>(
+    event: U,
+    listener: consoleEvents[U]
+  ): this;
+  emit<U extends keyof consoleEvents>(
+    event: U,
+    ...args: Parameters<consoleEvents[U]>
+  ): boolean;
   _OSC: x32MetaNode;
 }
 
@@ -89,11 +107,17 @@ class X32 extends EventEmitter {
     if (x32UpdateFrequency) {
       this._x32UpdateFrequency = x32UpdateFrequency / 50;
       if (this._x32UpdateFrequency > 99) {
-        console.log('Lowering X32 update frequency to highest possible: 4950ms');
+        this.emit(
+          'info',
+          'Lowering X32 update frequency to highest possible: 4950ms'
+        );
         this._x32UpdateFrequency = 99;
       }
       if (this._x32UpdateFrequency < 1) {
-        console.log('raising X32 update frequency to lowest possible: 50ms');
+        this.emit(
+          'info',
+          'raising X32 update frequency to lowest possible: 50ms'
+        );
         this._x32UpdateFrequency = 1;
       }
     }
@@ -138,12 +162,25 @@ class X32 extends EventEmitter {
         if (this.connected) {
           this.emit(
             'error',
-            new Error('It has been ' + time + ' seconds since last valid message from X32. Closing connection'),
+            new Error(
+              'It has been ' +
+                time +
+                ' seconds since last valid message from X32. Closing connection'
+            )
           );
-        } else this.emit('error', new Error('Unable to connect to X32 at ' + this.address));
+        } else
+          this.emit(
+            'error',
+            new Error('Unable to connect to X32 at ' + this.address)
+          );
         this.close();
       } else if (time > 10 && this.connected) {
-        this.emit('info', 'Warning: It has been ' + time + ' seconds since last valid message from X32');
+        this.emit(
+          'info',
+          'Warning: It has been ' +
+            time +
+            ' seconds since last valid message from X32'
+        );
       }
     }, 5000);
     this.on('closed', () => {
@@ -161,7 +198,10 @@ class X32 extends EventEmitter {
 
   private _send(cmd: string, args?: oscArgument[]) {
     if (!this.connected && cmd != '/info') {
-      this.emit('error', new Error('Cannot send message to X32 unless connected'));
+      this.emit(
+        'error',
+        new Error('Cannot send message to X32 unless connected')
+      );
       return;
     }
     if (args == undefined) args = [];
@@ -244,7 +284,13 @@ class X32 extends EventEmitter {
             this._serverVersion = infoArgs[0].data as string;
             this._model = infoArgs[2].data as string;
             this._firmwareVersion = infoArgs[3].data as string;
-            this.emit('info', 'Connected to X32. Model: ' + this.model + ', firmware version: ' + this.firmwareVersion);
+            this.emit(
+              'info',
+              'Connected to X32. Model: ' +
+                this.model +
+                ', firmware version: ' +
+                this.firmwareVersion
+            );
             this.emit('connected');
           } else this.emit('error', new Error('Bad console info from X32'));
         } else this.emit('error', new Error(infoArgs.error));
@@ -256,17 +302,28 @@ class X32 extends EventEmitter {
           if (Array.isArray(args) && args.length == 1) {
             this._lastValidMessage = Date.now();
             this._processChangeFromX32(oscAddress, args[0]);
-            if (args[0].type == 'f') this._leafEmitter.emit(oscAddress, args[0].data);
+            if (args[0].type == 'f')
+              this._leafEmitter.emit(oscAddress, args[0].data);
           } else if (!Array.isArray(args)) {
             this.emit('error', new Error(args.error));
-          } else this.emit('error', new Error('Unknown change type from X32: Multiple OSC arguments'));
+          } else
+            this.emit(
+              'error',
+              new Error('Unknown change type from X32: Multiple OSC arguments')
+            );
         } else {
           if (possibleFirstNode == 'meters') {
             let args = oscFormatBufferToArguments(buf);
             if (Array.isArray(args)) {
-              if (args.length == 1 && args[0].type == 'b' && args[0].data.length % 4 == 0) {
+              if (
+                args.length == 1 &&
+                args[0].type == 'b' &&
+                args[0].data.length % 4 == 0
+              ) {
                 this._lastValidMessage = Date.now();
-                let meterNumber = oscAddress.slice(oscAddress.indexOf('/', 1) + 1);
+                let meterNumber = oscAddress.slice(
+                  oscAddress.indexOf('/', 1) + 1
+                );
                 let meterBuf = args[0].data.slice(4);
                 let meterData: number[] = [];
                 for (let i = 0; i < meterBuf.length; i += 4) {
@@ -280,7 +337,11 @@ class X32 extends EventEmitter {
             } else this.emit('error', new Error(args.error));
           } else if (possibleFirstNode.slice(0, 1) == '-') {
             //console.log("Control info I don't care about from X32: " + oscAddress);
-          } else this.emit('error', new Error('Unknown OSC address from x32: ' + oscAddress));
+          } else
+            this.emit(
+              'error',
+              new Error('Unknown OSC address from x32: ' + oscAddress)
+            );
         }
         break;
     }
@@ -300,7 +361,14 @@ class X32 extends EventEmitter {
       };
       nodeTimeout = setTimeout(() => {
         this._nodeEmitter.off(address, nodeListener);
-        this.emit('error', new Error('Timeout on X32 node request for ' + address + '. Closing X32 connection.'));
+        this.emit(
+          'error',
+          new Error(
+            'Timeout on X32 node request for ' +
+              address +
+              '. Closing X32 connection.'
+          )
+        );
         this.close();
         rej('timeout');
       }, 5000);
@@ -314,7 +382,10 @@ class X32 extends EventEmitter {
     this._refreshState()
       .then(() => {
         this._markAllRedundant();
-        this.emit('info', 'Received X32 state in ' + (Date.now() - start) + ' ms');
+        this.emit(
+          'info',
+          'Received X32 state in ' + (Date.now() - start) + ' ms'
+        );
         if (!this._ready) {
           this._ready = true;
           this.emit('ready');
@@ -326,7 +397,10 @@ class X32 extends EventEmitter {
       });
   }
 
-  private async _refreshState(node?: x32DefinitionNode, prefix?: string): Promise<void> {
+  private async _refreshState(
+    node?: x32DefinitionNode,
+    prefix?: string
+  ): Promise<void> {
     return new Promise((res, rej) => {
       if (!node) {
         node = x32NodeStructure as x32DefinitionNode;
@@ -357,9 +431,11 @@ class X32 extends EventEmitter {
                 rej(err);
               });
           if (hasLeavesNodesVar[1])
-            await this._refreshState(child, prefix + childName + '/').catch((err) => {
-              rej(err);
-            });
+            await this._refreshState(child, prefix + childName + '/').catch(
+              (err) => {
+                rej(err);
+              }
+            );
           getNextNode();
         } else res();
       };
@@ -376,7 +452,8 @@ class X32 extends EventEmitter {
       if (isMetaLeaf(this._x32Meta.config.linkcfg.dyn))
         this._linkcfg.dyn = this._x32Meta.config.linkcfg.dyn._value == 'ON';
       if (isMetaLeaf(this._x32Meta.config.linkcfg.fdrmute))
-        this._linkcfg.fdrmute = this._x32Meta.config.linkcfg.fdrmute._value == 'ON';
+        this._linkcfg.fdrmute =
+          this._x32Meta.config.linkcfg.fdrmute._value == 'ON';
     }
     if (isNode(this._x32Meta.config) && isNode(this._x32Meta.config.mono)) {
       if (isMetaLeaf(this._x32Meta.config.mono.link))
@@ -399,7 +476,10 @@ class X32 extends EventEmitter {
     }
   }
 
-  private _markRedundant(type: 'ch' | 'aux' | 'fx' | 'bus' | 'mtx', num: number) {
+  private _markRedundant(
+    type: 'ch' | 'aux' | 'fx' | 'bus' | 'mtx',
+    num: number
+  ) {
     num = num + (num % 2);
     let linked = false;
     let linkAddress = type + 'link';
@@ -415,7 +495,10 @@ class X32 extends EventEmitter {
       if (isNode(linkNode)) {
         let linkLeaf = linkNode[num - 1 + '-' + num];
         if (isMetaLeaf(linkLeaf)) linked = linkLeaf._value == 'ON';
-      } else console.error('Tried to mark redundant flags from nonexistent node ' + linkNode);
+      } else
+        console.error(
+          'Tried to mark redundant flags from nonexistent node ' + linkNode
+        );
     }
     let [hadly, eq, dyn, fdrmute] = [
       linked && this._linkcfg.hadly,
@@ -436,9 +519,15 @@ class X32 extends EventEmitter {
         if (isNode(node.grp)) markRedundantTree(node.grp, fdrmute);
       } else
         console.error(
-          'Tried to mark redundant flags from nonexistent node ' + address + '/' + num.toString().padStart(2, '0'),
+          'Tried to mark redundant flags from nonexistent node ' +
+            address +
+            '/' +
+            num.toString().padStart(2, '0')
         );
-    } else console.error('Tried to mark redundant flags from nonexistent node ' + address);
+    } else
+      console.error(
+        'Tried to mark redundant flags from nonexistent node ' + address
+      );
     //hadly, eq, dyn, fdrmute
   }
 
@@ -446,14 +535,19 @@ class X32 extends EventEmitter {
     address: string,
     values: string[],
     leaves?: { name: string; type: x32DefinitionLeaf }[],
-    node?: x32MetaNode,
+    node?: x32MetaNode
   ) {
     if (!leaves) {
       //assume root
       leaves = getLeafDefs(address);
     }
     if (leaves.length != values.length) {
-      this.emit('error', new Error('X32 definitions do not match data from X32 for address: ' + address));
+      this.emit(
+        'error',
+        new Error(
+          'X32 definitions do not match data from X32 for address: ' + address
+        )
+      );
       return;
     }
     if (!node) node = this._x32Meta;
@@ -462,10 +556,14 @@ class X32 extends EventEmitter {
     if (index == -1) {
       property = address;
     } else property = address.slice(0, index);
-    if (!node[property]) node[property] = { _address: [...node._address, property] };
+    if (!node[property])
+      node[property] = { _address: [...node._address, property] };
     let nodeProperty = <x32MetaNode | x32MetaLeaf>node[property];
     if (nodeProperty._type) {
-      this.emit('error', new Error('Corrupt X32 tree. Leaf where a node should be.'));
+      this.emit(
+        'error',
+        new Error('Corrupt X32 tree. Leaf where a node should be.')
+      );
     } else {
       if (index == -1) {
         let nodeProperty = <x32MetaNode>node[property];
@@ -477,13 +575,21 @@ class X32 extends EventEmitter {
           };
         }
       } else {
-        this._populateX32Object(address.slice(index + 1), values, leaves, <x32MetaNode>node[property]);
+        this._populateX32Object(
+          address.slice(index + 1),
+          values,
+          leaves,
+          <x32MetaNode>node[property]
+        );
       }
     }
   }
 
   set OSC(value: osc) {
-    this.emit('error', new Error('Replacing the entire parameter tree is not yet coded'));
+    this.emit(
+      'error',
+      new Error('Replacing the entire parameter tree is not yet coded')
+    );
   }
   get OSC() {
     //@ts-ignore /*I don't know how to tell typescript that _OSCProxy doesn't preserve type
@@ -492,14 +598,17 @@ class X32 extends EventEmitter {
 
   set meterSubscriptions(value: meterDescriptions) {
     this._meterSubscriptions = value;
-    this.subscribe();
+    if (this.ready) this.subscribe();
   }
   get meterSubscriptions() {
     return [...this._meterSubscriptions];
   }
 
   private _OSCProxy: ProxyHandler<x32MetaNode> = {
-    get: function (x32Node: x32MetaNode, property: string | symbol): string | null | x32Node {
+    get: function (
+      x32Node: x32MetaNode,
+      property: string | symbol
+    ): string | null | x32Node {
       if (!property || typeof property == 'symbol') return null;
       let prop = x32Node[property];
       if (!prop || Array.isArray(prop) || property[0] == '_') return null;
@@ -509,13 +618,16 @@ class X32 extends EventEmitter {
       } else return prop._value;
     },
     //set needs to be an arrow function so that "this" will be the X32 object
-    set: (x32Node: x32MetaNode, property: string | symbol, value: string | x32Node) => {
+    set: (
+      x32Node: x32MetaNode,
+      property: string | symbol,
+      value: string | x32Node
+    ) => {
       if (!property || typeof property == 'symbol') return false;
       let prop = x32Node[property];
       if (!prop || Array.isArray(prop) || property[0] == '_') return false;
       if (prop._type && typeof value == 'string') {
         let oscAddress = '/' + prop._address.join('/');
-        console.log(oscAddress);
         this._send(oscAddress, [{ type: 's', data: value }]);
         return true;
       }
@@ -548,7 +660,7 @@ class X32 extends EventEmitter {
     address: string | string[],
     value: string,
     x32InNode?: x32MetaNode,
-    strAddress?: string,
+    strAddress?: string
   ): Promise<void> {
     let x32Node: x32MetaNode;
     let arrayAddress: string[];
@@ -594,7 +706,12 @@ class X32 extends EventEmitter {
     });
   }
 
-  private _sendDatawTimeout(address: string, value: number | string, int?: boolean, timeout?: number): Promise<void> {
+  private _sendDatawTimeout(
+    address: string,
+    value: number | string,
+    int?: boolean,
+    timeout?: number
+  ): Promise<void> {
     if (!timeout) timeout = 20;
     let arg: oscArgument[];
     if (typeof value == 'string') {
@@ -615,7 +732,7 @@ class X32 extends EventEmitter {
     valueIndex: number,
     steps: number,
     int?: boolean,
-    delay?: number,
+    delay?: number
   ): Promise<string[]> {
     return new Promise(async (res, rej) => {
       let rtn: string[] = [];
@@ -670,7 +787,7 @@ class X32 extends EventEmitter {
               ':' +
               minutes.toString().padStart(2, '0') +
               ':' +
-              seconds.toString().padStart(2, '0'),
+              seconds.toString().padStart(2, '0')
           );
           res(rtn);
         })
@@ -680,7 +797,11 @@ class X32 extends EventEmitter {
     });
   }
 
-  private _testTree(node: x32DefinitionNode, inAddress?: string, leaveKeys?: boolean): Promise<string[]> {
+  private _testTree(
+    node: x32DefinitionNode,
+    inAddress?: string,
+    leaveKeys?: boolean
+  ): Promise<string[]> {
     let address = '';
     if (inAddress) address = inAddress;
     return new Promise((res, rej) => {
@@ -691,11 +812,16 @@ class X32 extends EventEmitter {
         let i = -1;
         let checkLeaf = () => {
           i++;
-          if (i == properties.length - 1 && properties[i][0] == "'") i = properties.length;
+          if (i == properties.length - 1 && properties[i][0] == "'")
+            i = properties.length;
           if (address == '/ch' && i >= 6) i = properties.length;
           if (address == '/fx' && i >= 3) i = properties.length;
           if (i < properties.length) {
-            if (properties[i][0] == "'" && i < properties.length - 2 && !leaveKeys) {
+            if (
+              properties[i][0] == "'" &&
+              i < properties.length - 2 &&
+              !leaveKeys
+            ) {
               if (address.slice(-3) == '/eq') {
                 i = properties.length - 1;
               } else i = properties.length - 2;
@@ -715,7 +841,9 @@ class X32 extends EventEmitter {
                   if (maybeLeaf._conditional[key]) {
                     if (maybeLeaf._conditional[key][maybeLeaf._index]) {
                       maybeLeaf = JSON.parse(
-                        JSON.stringify(maybeLeaf._conditional[key][maybeLeaf._index]),
+                        JSON.stringify(
+                          maybeLeaf._conditional[key][maybeLeaf._index]
+                        )
                       ) as x32DefinitionLeaf;
                     } else {
                       i = properties.length - 1;
@@ -726,10 +854,21 @@ class X32 extends EventEmitter {
               }
               switch (maybeLeaf._type) {
                 case 'bitmap':
-                  let bitmapArray = ['%'.padEnd(maybeLeaf._size + 1, '0'), '%'.padEnd(maybeLeaf._size, '0') + '1'];
-                  this._learnTextFromNumber(address + '/' + leafName, address.slice(1), i, 1, true)
+                  let bitmapArray = [
+                    '%'.padEnd(maybeLeaf._size + 1, '0'),
+                    '%'.padEnd(maybeLeaf._size, '0') + '1',
+                  ];
+                  this._learnTextFromNumber(
+                    address + '/' + leafName,
+                    address.slice(1),
+                    i,
+                    1,
+                    true
+                  )
                     .then((values) => {
-                      if (JSON.stringify(values) != JSON.stringify(bitmapArray)) {
+                      if (
+                        JSON.stringify(values) != JSON.stringify(bitmapArray)
+                      ) {
                         rtn.push(address + '/' + leafName);
                       }
                       checkLeaf();
@@ -741,20 +880,29 @@ class X32 extends EventEmitter {
                 case 'btnString':
                   let btnStringArray = ['X001', 'X002'];
                   let btnReturnArray: string[] = [];
-                  this._sendDatawTimeout(address + '/' + leafName, btnStringArray[0])
+                  this._sendDatawTimeout(
+                    address + '/' + leafName,
+                    btnStringArray[0]
+                  )
                     .then(() => {
                       return this._getNode(address.slice(1));
                     })
                     .then((nodeValues) => {
                       btnReturnArray.push(nodeValues[i]);
-                      return this._sendDatawTimeout(address + '/' + leafName, btnStringArray[1]);
+                      return this._sendDatawTimeout(
+                        address + '/' + leafName,
+                        btnStringArray[1]
+                      );
                     })
                     .then(() => {
                       return this._getNode(address.slice(1));
                     })
                     .then((nodeValues) => {
                       btnReturnArray.push(nodeValues[i]);
-                      if (JSON.stringify(btnReturnArray) != JSON.stringify(btnStringArray)) {
+                      if (
+                        JSON.stringify(btnReturnArray) !=
+                        JSON.stringify(btnStringArray)
+                      ) {
                         //fs.writeFile('./test.json', JSON.stringify(btnReturnArray), () => {});
                         //fs.writeFile('./test2.json', JSON.stringify(btnStringArray), () => {});
                         rtn.push(address + '/' + leafName);
@@ -768,20 +916,29 @@ class X32 extends EventEmitter {
                 case 'encString':
                   let encStringArray = ['X001', 'X002'];
                   let encReturnArray: string[] = [];
-                  this._sendDatawTimeout(address + '/' + leafName, encStringArray[0])
+                  this._sendDatawTimeout(
+                    address + '/' + leafName,
+                    encStringArray[0]
+                  )
                     .then(() => {
                       return this._getNode(address.slice(1));
                     })
                     .then((nodeValues) => {
                       encReturnArray.push(nodeValues[i]);
-                      return this._sendDatawTimeout(address + '/' + leafName, encStringArray[1]);
+                      return this._sendDatawTimeout(
+                        address + '/' + leafName,
+                        encStringArray[1]
+                      );
                     })
                     .then(() => {
                       return this._getNode(address.slice(1));
                     })
                     .then((nodeValues) => {
                       encReturnArray.push(nodeValues[i]);
-                      if (JSON.stringify(encReturnArray) != JSON.stringify(encStringArray)) {
+                      if (
+                        JSON.stringify(encReturnArray) !=
+                        JSON.stringify(encStringArray)
+                      ) {
                         //fs.writeFile('./test.json', JSON.stringify(encReturnArray), () => {});
                         //fs.writeFile('./test2.json', JSON.stringify(encStringArray), () => {});
                         rtn.push(address + '/' + leafName);
@@ -804,10 +961,12 @@ class X32 extends EventEmitter {
                       i,
                       enumArray.length - 1,
                       true,
-                      enumDelay,
+                      enumDelay
                     )
                       .then((values) => {
-                        if (JSON.stringify(values) != JSON.stringify(enumArray)) {
+                        if (
+                          JSON.stringify(values) != JSON.stringify(enumArray)
+                        ) {
                           //fs.writeFile('./test.json', JSON.stringify(values), () => {});
                           //fs.writeFile('./test2.json', JSON.stringify(enumArray), () => {});
                           /* for (let i = 0; i < enumArray.length; i++) {
@@ -819,10 +978,18 @@ class X32 extends EventEmitter {
                           if (isKey && !leaveKeys) {
                             (async () => {
                               for (let i = 0; i < enumArray.length; i++) {
-                                await this._setOSC(address + '/' + leafName, enumArray[i])
+                                await this._setOSC(
+                                  address + '/' + leafName,
+                                  enumArray[i]
+                                )
                                   .then(() => {
                                     console.log(
-                                      'Testing leaf: ' + address + '/' + leafName + ', setting: ' + enumArray[i],
+                                      'Testing leaf: ' +
+                                        address +
+                                        '/' +
+                                        leafName +
+                                        ', setting: ' +
+                                        enumArray[i]
                                     );
                                     return this._testTree(node, address, true);
                                   })
@@ -867,13 +1034,22 @@ class X32 extends EventEmitter {
                         _maxDigits: maybeLeaf._maxDigits,
                         _freq: maybeLeaf._freq,
                       },
-                      this._x32Meta,
+                      this._x32Meta
                     );
-                    if (typeof nextElement == 'string') exponentialArray.push(nextElement);
+                    if (typeof nextElement == 'string')
+                      exponentialArray.push(nextElement);
                   }
-                  this._learnTextFromNumber(address + '/' + leafName, address.slice(1), i, exponentialArray.length - 1)
+                  this._learnTextFromNumber(
+                    address + '/' + leafName,
+                    address.slice(1),
+                    i,
+                    exponentialArray.length - 1
+                  )
                     .then((values) => {
-                      if (JSON.stringify(values) != JSON.stringify(exponentialArray)) {
+                      if (
+                        JSON.stringify(values) !=
+                        JSON.stringify(exponentialArray)
+                      ) {
                         //fs.writeFile('./test.json', JSON.stringify(values), () => {});
                         //fs.writeFile('./test2.json', JSON.stringify(exponentialArray), () => {});
                         /* for (let i = 0; i < exponentialArray.length; i++) {
@@ -892,7 +1068,13 @@ class X32 extends EventEmitter {
                     if (i == 0) i = 1; //There is no icon 0 for some absurd reason
                     return i.toString();
                   });
-                  this._learnTextFromNumber(address + '/' + leafName, address.slice(1), i, iconArray.length - 1, true)
+                  this._learnTextFromNumber(
+                    address + '/' + leafName,
+                    address.slice(1),
+                    i,
+                    iconArray.length - 1,
+                    true
+                  )
                     .then((values) => {
                       if (JSON.stringify(values) != JSON.stringify(iconArray)) {
                         //fs.writeFile('./test.json', JSON.stringify({[address + '/' + leafName]: values}), () => {});
@@ -906,10 +1088,18 @@ class X32 extends EventEmitter {
                     });
                   break;
                 case 'int':
-                  let intArray = new Array(maybeLeaf._max + 1).fill(0).map((v, i) => {
-                    return i.toString();
-                  });
-                  this._learnTextFromNumber(address + '/' + leafName, address.slice(1), i, intArray.length - 1, true)
+                  let intArray = new Array(maybeLeaf._max + 1)
+                    .fill(0)
+                    .map((v, i) => {
+                      return i.toString();
+                    });
+                  this._learnTextFromNumber(
+                    address + '/' + leafName,
+                    address.slice(1),
+                    i,
+                    intArray.length - 1,
+                    true
+                  )
                     .then((values) => {
                       if (JSON.stringify(values) != JSON.stringify(intArray)) {
                         //fs.writeFile('./test.json', JSON.stringify({[address + '/' + leafName]: values}), () => {});
@@ -928,18 +1118,26 @@ class X32 extends EventEmitter {
                     let nextElement = x32ValueToString(
                       { type: 'f', data: i / 1023 },
                       { _type: 'level', _address: [], _value: '' },
-                      this._x32Meta,
+                      this._x32Meta
                     );
-                    if (typeof nextElement == 'string') levelArray.push(nextElement);
+                    if (typeof nextElement == 'string')
+                      levelArray.push(nextElement);
                   }
-                  this._learnTextFromNumber(address + '/' + leafName, address.slice(1), i, levelArray.length - 1)
+                  this._learnTextFromNumber(
+                    address + '/' + leafName,
+                    address.slice(1),
+                    i,
+                    levelArray.length - 1
+                  )
                     .then((values) => {
                       //fs.writeFile('./test.json', JSON.stringify(values), () => {});
                       //fs.writeFile('./test2.json', JSON.stringify(levelArray), () => {});
                       /* for (let i = 0; i < levelArray.length; i++) {
                           if (values[i] != levelArray[i]) console.log(values[i] + ' ' + levelArray[i]);
                         } */
-                      if (JSON.stringify(values) != JSON.stringify(levelArray)) {
+                      if (
+                        JSON.stringify(values) != JSON.stringify(levelArray)
+                      ) {
                         rtn.push(address + '/' + leafName);
                       }
                       checkLeaf();
@@ -954,15 +1152,23 @@ class X32 extends EventEmitter {
                     let nextElement = x32ValueToString(
                       { type: 'f', data: i / 160 },
                       { _type: 'level161', _address: [], _value: '' },
-                      this._x32Meta,
+                      this._x32Meta
                     );
-                    if (typeof nextElement == 'string') level161Array.push(nextElement);
+                    if (typeof nextElement == 'string')
+                      level161Array.push(nextElement);
                   }
-                  this._learnTextFromNumber(address + '/' + leafName, address.slice(1), i, level161Array.length - 1)
+                  this._learnTextFromNumber(
+                    address + '/' + leafName,
+                    address.slice(1),
+                    i,
+                    level161Array.length - 1
+                  )
                     .then((values) => {
                       //fs.writeFile('./test.json', JSON.stringify(values), () => {});
                       //fs.writeFile('./test2.json', JSON.stringify(level161Array), () => {});
-                      if (JSON.stringify(values) != JSON.stringify(level161Array)) {
+                      if (
+                        JSON.stringify(values) != JSON.stringify(level161Array)
+                      ) {
                         rtn.push(address + '/' + leafName);
                       }
                       checkLeaf();
@@ -973,7 +1179,9 @@ class X32 extends EventEmitter {
                   break;
                 case 'linear':
                   let linearArray: string[] = [];
-                  let steps = Math.round((maybeLeaf._max - maybeLeaf._min) / maybeLeaf._step);
+                  let steps = Math.round(
+                    (maybeLeaf._max - maybeLeaf._min) / maybeLeaf._step
+                  );
                   for (let i = 0; i <= steps; i++) {
                     let nextElement = x32ValueToString(
                       { type: 'f', data: i / steps },
@@ -988,13 +1196,21 @@ class X32 extends EventEmitter {
                         _maxDigits: maybeLeaf._maxDigits,
                         _plusSign: maybeLeaf._plusSign,
                       },
-                      this._x32Meta,
+                      this._x32Meta
                     );
-                    if (typeof nextElement == 'string') linearArray.push(nextElement);
+                    if (typeof nextElement == 'string')
+                      linearArray.push(nextElement);
                   }
-                  this._learnTextFromNumber(address + '/' + leafName, address.slice(1), i, linearArray.length - 1)
+                  this._learnTextFromNumber(
+                    address + '/' + leafName,
+                    address.slice(1),
+                    i,
+                    linearArray.length - 1
+                  )
                     .then((values) => {
-                      if (JSON.stringify(values) != JSON.stringify(linearArray)) {
+                      if (
+                        JSON.stringify(values) != JSON.stringify(linearArray)
+                      ) {
                         //fs.writeFile('./test.json', JSON.stringify(values), () => {});
                         //fs.writeFile('./test2.json', JSON.stringify(linearArray), () => {});
                         /* for (let i = 0; i < linearArray.length; i++) {
@@ -1011,22 +1227,39 @@ class X32 extends EventEmitter {
                 case 'string':
                   let stringArray = ['X001', 'X002'];
                   let returnArray: string[] = [];
-                  this._sendDatawTimeout(address + '/' + leafName, stringArray[0])
+                  this._sendDatawTimeout(
+                    address + '/' + leafName,
+                    stringArray[0]
+                  )
                     .then(() => {
                       return this._getNode(address.slice(1));
                     })
                     .then((nodeValues) => {
                       returnArray.push(nodeValues[i]);
-                      return this._sendDatawTimeout(address + '/' + leafName, stringArray[1]);
+                      return this._sendDatawTimeout(
+                        address + '/' + leafName,
+                        stringArray[1]
+                      );
                     })
                     .then(() => {
                       return this._getNode(address.slice(1));
                     })
                     .then((nodeValues) => {
                       returnArray.push(nodeValues[i]);
-                      if (JSON.stringify(returnArray) != JSON.stringify(stringArray)) {
-                        fs.writeFile('./test.json', JSON.stringify(returnArray), () => {});
-                        fs.writeFile('./test2.json', JSON.stringify(stringArray), () => {});
+                      if (
+                        JSON.stringify(returnArray) !=
+                        JSON.stringify(stringArray)
+                      ) {
+                        fs.writeFile(
+                          './test.json',
+                          JSON.stringify(returnArray),
+                          () => {}
+                        );
+                        fs.writeFile(
+                          './test2.json',
+                          JSON.stringify(stringArray),
+                          () => {}
+                        );
                         rtn.push(address + '/' + leafName);
                       }
                       checkLeaf();
@@ -1039,11 +1272,19 @@ class X32 extends EventEmitter {
                   let vEnumArray = maybeLeaf._enum.map((v, i) => {
                     return i.toString();
                   });
-                  this._learnTextFromNumber(address + '/' + leafName, address.slice(1), i, vEnumArray.length - 1, true)
+                  this._learnTextFromNumber(
+                    address + '/' + leafName,
+                    address.slice(1),
+                    i,
+                    vEnumArray.length - 1,
+                    true
+                  )
                     .then((values) => {
                       //fs.writeFile('./test.json', JSON.stringify(values), () => {});
                       //fs.writeFile('./test2.json', JSON.stringify(vEnumArray), () => {});
-                      if (JSON.stringify(values) != JSON.stringify(vEnumArray)) {
+                      if (
+                        JSON.stringify(values) != JSON.stringify(vEnumArray)
+                      ) {
                         rtn.push(address + '/' + leafName);
                       }
                       checkLeaf();
@@ -1053,7 +1294,8 @@ class X32 extends EventEmitter {
                     });
                   break;
                 case 'unused':
-                  if (!leaveKeys) console.error('Unexpected "unused" type leaf');
+                  if (!leaveKeys)
+                    console.error('Unexpected "unused" type leaf');
                   checkLeaf();
                   break;
                 default:
@@ -1087,7 +1329,11 @@ class X32 extends EventEmitter {
     });
   }
 
-  private _processChangeFromX32(oscAddress: string, arg: oscArgument, node?: x32MetaNode) {
+  private _processChangeFromX32(
+    oscAddress: string,
+    arg: oscArgument,
+    node?: x32MetaNode
+  ) {
     if (!node) node = this._x32Meta;
     let index = oscAddress.indexOf('/', 1);
     if (index == -1) {
@@ -1097,16 +1343,33 @@ class X32 extends EventEmitter {
         if (typeof newValue == 'string') {
           leaf._value = newValue;
           let linkTest = leaf._address[leaf._address.length - 2].slice(-4);
-          if (linkTest  == 'link' || linkTest == 'kcfg') this._markAllRedundant();
+          if (linkTest == 'link' || linkTest == 'kcfg')
+            this._markAllRedundant();
         } else this.emit('error', new Error(newValue.error));
-      } else this.emit('error', new Error('X32 changing unknown parameter: ' + node._address.join('/') + oscAddress));
+      } else
+        this.emit(
+          'error',
+          new Error(
+            'X32 changing unknown parameter: ' +
+              node._address.join('/') +
+              oscAddress
+          )
+        );
     } else {
       let nextNodeName = oscAddress.slice(1, index);
       let nextAddress = oscAddress.slice(index);
       let nextNode = node[nextNodeName];
       if (isNode(nextNode)) {
         this._processChangeFromX32(nextAddress, arg, nextNode);
-      } else this.emit('error', new Error('X32 changing unknown parameter: ' + node._address.join('/') + oscAddress));
+      } else
+        this.emit(
+          'error',
+          new Error(
+            'X32 changing unknown parameter: ' +
+              node._address.join('/') +
+              oscAddress
+          )
+        );
     }
   }
 
@@ -1131,7 +1394,8 @@ class X32 extends EventEmitter {
           }
           if (!metaProp._type && typeof refProp == 'object') {
             let possibleObject = this._getDiff(refProp, metaProp);
-            if (Object.getOwnPropertyNames(possibleObject).length > 0) rtn[properties[i]] = possibleObject;
+            if (Object.getOwnPropertyNames(possibleObject).length > 0)
+              rtn[properties[i]] = possibleObject;
           }
         }
       }
@@ -1175,22 +1439,32 @@ class X32 extends EventEmitter {
             address = newAddress;
           } else leafDefs = [];
         }
-        if (leafDefs.length != values.length) console.error('Value/definition mismatch or bad node');
+        if (leafDefs.length != values.length)
+          console.error('Value/definition mismatch or bad node');
         populateX32ValueTree(x32node, address, values, leafDefs);
       } else {
-        console.log('Skipped line:');
-        console.log(lines[i]);
+        //console.log("Skipped line:");
+        //console.log(lines[i]);
       }
     }
     return x32node;
   }
 }
 
-export default X32;
+export { X32 };
 
-function x32ValueToString(arg: oscArgument, leaf: x32MetaLeaf, x32Node: x32MetaNode): string | { error: string } {
+function x32ValueToString(
+  arg: oscArgument,
+  leaf: x32MetaLeaf,
+  x32Node: x32MetaNode
+): string | { error: string } {
   let typeError = {
-    error: 'OSC type "' + arg.type + '" incompatible with X32 leaf type"' + leaf._type + '"',
+    error:
+      'OSC type "' +
+      arg.type +
+      '" incompatible with X32 leaf type"' +
+      leaf._type +
+      '"',
   };
   let rangeError = {
     error: 'Out of range number for OSC node:' + leaf._address,
@@ -1201,7 +1475,9 @@ function x32ValueToString(arg: oscArgument, leaf: x32MetaLeaf, x32Node: x32MetaN
       return key;
     } else {
       if (leaf._conditional[key] && leaf._conditional[key][leaf._index]) {
-        let newLeaf = JSON.parse(JSON.stringify(leaf._conditional[key][leaf._index])) as x32DefinitionLeaf & {
+        let newLeaf = JSON.parse(
+          JSON.stringify(leaf._conditional[key][leaf._index])
+        ) as x32DefinitionLeaf & {
           _name?: string;
           _address: string[];
           _value: string;
@@ -1334,11 +1610,13 @@ function x32ValueToString(arg: oscArgument, leaf: x32MetaLeaf, x32Node: x32MetaN
     case 'exponential': {
       if (arg.type == 'f') {
         let rounded = Math.round(arg.data * leaf._steps) / leaf._steps;
-        let rtn = leaf._min * Math.exp(Math.log(leaf._max / leaf._min) * rounded);
+        let rtn =
+          leaf._min * Math.exp(Math.log(leaf._max / leaf._min) * rounded);
         rtn = Math.round(rtn * 10000000) / 10000000;
         if (leaf._freq && rtn >= 1000) {
           let kHz = Math.floor(rtn / 1000);
-          if ((leaf._decimals || leaf._decimals == 0) && leaf._decimals <= 0) rtn = Math.round(rtn);
+          if ((leaf._decimals || leaf._decimals == 0) && leaf._decimals <= 0)
+            rtn = Math.round(rtn);
           rtn = Math.round(rtn * 10) / 10; //20-20k freq type needs this
           let rest = Math.floor(rtn % 1000)
             .toString()
@@ -1353,7 +1631,8 @@ function x32ValueToString(arg: oscArgument, leaf: x32MetaLeaf, x32Node: x32MetaN
               let digits = Math.floor(rtn).toFixed(0).length + leaf._decimals;
               let removeDigits = digits - leaf._maxDigits;
               if (removeDigits > 0) {
-                if (removeDigits > leaf._decimals) removeDigits = leaf._decimals;
+                if (removeDigits > leaf._decimals)
+                  removeDigits = leaf._decimals;
                 if (removeDigits == leaf._decimals) removeDigits++;
                 expString = expString.slice(0, -removeDigits);
               }
@@ -1368,10 +1647,16 @@ function x32ValueToString(arg: oscArgument, leaf: x32MetaLeaf, x32Node: x32MetaN
   }
 }
 
-function getLeafValue(address: string[], x32node: x32MetaNode | x32Node): string | { error: string } {
+function getLeafValue(
+  address: string[],
+  x32node: x32MetaNode | x32Node
+): string | { error: string } {
   if (address.length == 1) {
     let leaf = x32node[address[0]];
-    if ((leaf && !Array.isArray(leaf) && typeof leaf == 'object' && leaf._type) || typeof leaf == 'string') {
+    if (
+      (leaf && !Array.isArray(leaf) && typeof leaf == 'object' && leaf._type) ||
+      typeof leaf == 'string'
+    ) {
       if (typeof leaf == 'string') {
         return leaf;
       } else return leaf._value;
@@ -1380,7 +1665,12 @@ function getLeafValue(address: string[], x32node: x32MetaNode | x32Node): string
     let newNodeName = address[0];
     let newAddress = address.slice(1);
     let newNode = x32node[newNodeName];
-    if (newNode && typeof newNode == 'object' && !Array.isArray(newNode) && !newNode._type) {
+    if (
+      newNode &&
+      typeof newNode == 'object' &&
+      !Array.isArray(newNode) &&
+      !newNode._type
+    ) {
       return getLeafValue(newAddress, newNode);
     } else return { error: 'Bad address' };
   }
@@ -1389,7 +1679,7 @@ function getLeafValue(address: string[], x32node: x32MetaNode | x32Node): string
 function getLeafDefs(
   address: string,
   //values: string[],
-  node?: x32DefinitionNode,
+  node?: x32DefinitionNode
 ): { name: string; type: x32DefinitionLeaf }[] {
   let rtn: { name: string; type: x32DefinitionLeaf }[] = [];
   if (!node) node = x32NodeStructure as x32DefinitionNode;
@@ -1438,7 +1728,12 @@ function hasLeavesNodes(node: x32DefinitionNode): [boolean, boolean] {
   return rtn;
 }
 
-function populateX32ValueTree(x32Node: x32Node, address: string, values: string[], leaves: string[]) {
+function populateX32ValueTree(
+  x32Node: x32Node,
+  address: string,
+  values: string[],
+  leaves: string[]
+) {
   let index = address.indexOf('/');
   if (index == -1) {
     if (!x32Node[address]) x32Node[address] = {};
@@ -1474,7 +1769,8 @@ function oscNodeStringToValueArray(string: string): string[] {
     let index = remainingString.indexOf(' ');
     if (index == -1) {
       i += remainingString.length;
-      if (remainingString[remainingString.length - 1] == '\n') remainingString = remainingString.slice(0, -1);
+      if (remainingString[remainingString.length - 1] == '\n')
+        remainingString = remainingString.slice(0, -1);
       values.push(remainingString);
     } else if (index > 0) {
       let quoteTrim = 0;
@@ -1490,7 +1786,10 @@ function oscNodeStringToValueArray(string: string): string[] {
   return values;
 }
 
-function oscFormatBufferToArguments(buf: Buffer, format?: string[]): oscArgument[] | { error: string } {
+function oscFormatBufferToArguments(
+  buf: Buffer,
+  format?: string[]
+): oscArgument[] | { error: string } {
   if (!format) {
     let split = buf.indexOf(0);
     if (split == -1) return { error: 'Bad data from X32' };
@@ -1504,15 +1803,18 @@ function oscFormatBufferToArguments(buf: Buffer, format?: string[]): oscArgument
     buf = buf.slice(split);
   }
   let args: oscArgument[] = [];
-  if (format.length == 0 && buf.length > 0) return { error: 'OSC data without format from X32' };
-  if (format.length > 0 && buf.length < 4) return { error: 'OSC from X32 missing data claimed by format' };
+  if (format.length == 0 && buf.length > 0)
+    return { error: 'OSC data without format from X32' };
+  if (format.length > 0 && buf.length < 4)
+    return { error: 'OSC from X32 missing data claimed by format' };
   if (format.length == 0) return [];
   let argument1: oscArgument | null = null;
   let bufEnd = 4;
   switch (format[0]) {
     case 'b':
       let blobSize = buf.readInt32BE();
-      if (blobSize + 4 > buf.length) return { error: 'OSC from X32 missing data claimed by format: blob' };
+      if (blobSize + 4 > buf.length)
+        return { error: 'OSC from X32 missing data claimed by format: blob' };
       bufEnd = 4 + blobSize;
       bufEnd = Math.ceil(bufEnd / 4) * 4;
       let blobData = buf.slice(4, 4 + blobSize);
@@ -1526,14 +1828,18 @@ function oscFormatBufferToArguments(buf: Buffer, format?: string[]): oscArgument
       break;
     case 's':
       let stringSize = buf.indexOf(0);
-      if (stringSize == -1) return { error: 'OSC from X32 missing data claimed by format: string' };
+      if (stringSize == -1)
+        return { error: 'OSC from X32 missing data claimed by format: string' };
       bufEnd = stringSize + 1;
       bufEnd = Math.ceil(bufEnd / 4) * 4;
       argument1 = { type: 's', data: buf.slice(0, stringSize).toString() };
       break;
   }
   if (!argument1) return { error: 'unknown OSC format from X32' };
-  let remainingArgs = oscFormatBufferToArguments(buf.slice(bufEnd), format.slice(1));
+  let remainingArgs = oscFormatBufferToArguments(
+    buf.slice(bufEnd),
+    format.slice(1)
+  );
   if (Array.isArray(remainingArgs)) {
     return [argument1, ...remainingArgs];
   } else {
@@ -1572,15 +1878,27 @@ function stringToBuffer(str: string): Buffer {
 }
 
 function isNode(
-  unknown: x32MetaNode | x32Node | string[] | string | x32MetaLeaf | undefined,
+  unknown: x32MetaNode | x32Node | string[] | string | x32MetaLeaf | undefined
 ): unknown is x32MetaNode | x32Node {
-  if (unknown && typeof unknown != 'string' && !Array.isArray(unknown) && !unknown._type) {
+  if (
+    unknown &&
+    typeof unknown != 'string' &&
+    !Array.isArray(unknown) &&
+    !unknown._type
+  ) {
     return true;
   } else return false;
 }
 
-function isMetaLeaf(unknown: x32MetaNode | x32MetaLeaf | string[] | undefined): unknown is x32MetaLeaf {
-  if (unknown && typeof unknown != 'string' && !Array.isArray(unknown) && unknown._type) {
+function isMetaLeaf(
+  unknown: x32MetaNode | x32MetaLeaf | string[] | undefined
+): unknown is x32MetaLeaf {
+  if (
+    unknown &&
+    typeof unknown != 'string' &&
+    !Array.isArray(unknown) &&
+    unknown._type
+  ) {
     return true;
   } else return false;
 }
