@@ -20,11 +20,6 @@ import { X32 } from 'x32-osc';
 ## Basic Usage
 
 ```javascript
-let testScene;
-fs.readFile('./test.scn', (err, data) => {
-  testScene = X32.x32FromText(data);
-});
-
 //subscribe to /meters/6, the channel meters, for channel 1, and /meters/12, the recording meters
 x32.meterSubscriptions = [[6, 1], 12];
 x32.on('error', (err) => {
@@ -42,7 +37,10 @@ x32.on('ready', () => {
   // set DCA icon to icon #30:
   x32.OSC.dca[1].config.icon = '30';
   //get a tree of the differences between test.scn and the current state of the console:
-  console.log(JSON.stringify(x32.getDiff(testScene), null, 2));
+  fs.readFile('./test.scn', (err, data) => {
+    let testScene = X32.x32FromText(data);
+    console.log(JSON.stringify(x32.getDiff(testScene), null, 2));
+  });
   // close the connection to the X32:
   x32.close();
 });
