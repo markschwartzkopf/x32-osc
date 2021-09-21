@@ -1,0 +1,27 @@
+{
+  "name": "x32-osc",
+  "version": "1.0.0",
+  "description": "X32/M32 OSC interface",
+  "main": "index.js",
+  "scripts": {
+    "watch": "node ./node_modules/typescript/bin/tsc -p . --diagnostics --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/markschwartzkopf/console-testing.git"
+  },
+  "keywords": [
+    "x32"
+  ],
+  "author": "Mark Schwartzkopf",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/markschwartzkopf/console-testing/issues"
+  },
+  "homepage": "https://github.com/markschwartzkopf/console-testing#readme",
+  "devDependencies": {
+    "@types/node": "^16.9.4",
+    "typescript": "^4.4.3"
+  }
+}
