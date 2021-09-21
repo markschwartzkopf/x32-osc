@@ -1,3 +1,4 @@
 /node_modules
 *.js
+*.d.ts
 !x32-osc.d.ts
