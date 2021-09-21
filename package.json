@@ -4,6 +4,7 @@
   "description": "X32/M32 OSC interface",
   "main": "index.js",
   "scripts": {
+    "build": "node ./node_modules/typescript/bin/tsc -p . --diagnostics",
     "watch": "node ./node_modules/typescript/bin/tsc -p . --diagnostics --watch",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
