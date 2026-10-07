@@ -628,6 +628,12 @@ class X32 extends EventEmitter {
       if (!prop || Array.isArray(prop) || property[0] == '_') return false;
       if (prop._type && typeof value == 'string') {
         let oscAddress = '/' + prop._address.join('/');
+        prop._value = value;
+        let parent = prop._address[prop._address.length - 2];
+        if (parent) {
+          let linkTest = parent.slice(-4);
+          if (linkTest == 'link' || linkTest == 'kcfg') this._markAllRedundant();
+        }
         this._send(oscAddress, [{ type: 's', data: value }]);
         return true;
       }
